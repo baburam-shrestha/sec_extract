@@ -42,61 +42,63 @@ def scrape_document(cik_name: str, date: str, cik_num: str, accsNum: str, docume
         try:
             url = f"https://www.sec.gov/Archives/edgar/data/{cik_num}/{accsNum}/{document}"
             response = client.get(url)
-            html = str(response.content)
-            soup = BeautifulSoup(html, 'html.parser')
-            hr_tags = soup.find_all('hr')
-            page_splitted = []
-            pages_with_tables = []
-            page_number = 0
-            if not hr_tags:
-                pages_with_tables.append({
-                        "cik_name": cik_name,
-                        "reporting_date": date,
-                        "url":url,
-                        "page_number": page_number,
-                        "page_content": soup
-                    })
-                return pages_with_tables
-            else:
-                first_hr = hr_tags[0]
-                content_before_first_hr = []
-                sibling = first_hr.find_previous_sibling()
-
-                while sibling and sibling.name != 'hr':
-                    content_before_first_hr.append(str(sibling))
-                    sibling = sibling.find_previous_sibling()
-
-                page_splitted.append(''.join(reversed(content_before_first_hr)))
-                for tag in hr_tags:
-                    content = []
-                    sibling = tag.find_next_sibling()
-                    
-                    while sibling and sibling.name != 'hr':
-                        content.append(str(sibling).replace('\n', ' ').replace('\t', ' ').replace('\xa0', ' '))
-                        sibling = sibling.find_next_sibling()
-
-                    page_splitted.append(''.join(content))
-
-                for page_content in page_splitted:
-                    page_number += 1
-                    soup = BeautifulSoup(page_content, "html.parser")
-                    table_tags = soup.find_all("table")
-
-                    if table_tags:
-                        for tag in soup.find_all():
-                            if "style" in tag.attrs:
-                                del tag.attrs["style"]
-
-                        page_content = str(soup)
-
-                        pages_with_tables.append({
+            status = response.raise_for_status()
+            if status == 200:
+                html = str(response.content)
+                soup = BeautifulSoup(html, 'html.parser')
+                hr_tags = soup.find_all('hr')
+                page_splitted = []
+                pages_with_tables = []
+                page_number = 0
+                if not hr_tags:
+                    pages_with_tables.append({
                             "cik_name": cik_name,
                             "reporting_date": date,
                             "url":url,
                             "page_number": page_number,
-                            "page_content": page_content
+                            "page_content": soup
                         })
-                return pages_with_tables
+                    return pages_with_tables
+                else:
+                    first_hr = hr_tags[0]
+                    content_before_first_hr = []
+                    sibling = first_hr.find_previous_sibling()
+    
+                    while sibling and sibling.name != 'hr':
+                        content_before_first_hr.append(str(sibling))
+                        sibling = sibling.find_previous_sibling()
+    
+                    page_splitted.append(''.join(reversed(content_before_first_hr)))
+                    for tag in hr_tags:
+                        content = []
+                        sibling = tag.find_next_sibling()
+                        
+                        while sibling and sibling.name != 'hr':
+                            content.append(str(sibling).replace('\n', ' ').replace('\t', ' ').replace('\xa0', ' '))
+                            sibling = sibling.find_next_sibling()
+    
+                        page_splitted.append(''.join(content))
+    
+                    for page_content in page_splitted:
+                        page_number += 1
+                        soup = BeautifulSoup(page_content, "html.parser")
+                        table_tags = soup.find_all("table")
+    
+                        if table_tags:
+                            for tag in soup.find_all():
+                                if "style" in tag.attrs:
+                                    del tag.attrs["style"]
+    
+                            page_content = str(soup)
+    
+                            pages_with_tables.append({
+                                "cik_name": cik_name,
+                                "reporting_date": date,
+                                "url":url,
+                                "page_number": page_number,
+                                "page_content": page_content
+                            })
+                    return pages_with_tables
         except requests.exceptions.HTTPError as errh:
             logger.info("Http Error:", errh)
             time.sleep(2)
